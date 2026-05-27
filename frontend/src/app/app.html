@@ -1,0 +1,239 @@
+<div class="dashboard-container">
+  <!-- TOP HEADER -->
+  <header class="amvi-header d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center gap-3">
+      <div class="logo-circle">
+        <i class="bi bi-soundwave"></i>
+      </div>
+      <div>
+        <h1 class="header-title">Agentic Multilingual Voice Interface (AMVI)</h1>
+        <p class="header-subtitle">Intelligent Voice-Driven Form Entry</p>
+      </div>
+    </div>
+    
+    <div class="d-flex align-items-center gap-4">
+      <div class="d-flex align-items-center gap-2">
+        <span class="text-muted small">Volume</span>
+        <i class="bi bi-volume-down text-muted"></i>
+        <input type="range" class="form-range volume-slider" min="0" max="100" [(ngModel)]="volumeLevel" (ngModelChange)="onVolumeChange()">
+      </div>
+      
+      <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" (click)="testSound()">
+        <i class="bi bi-speaker"></i> Test Sound
+      </button>
+      
+      <button class="btn btn-light rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+        <i class="bi bi-gear text-muted"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="container-fluid flex-grow-1 p-4">
+    <div class="row h-100">
+      
+      <!-- LEFT COLUMN: AUTO-FILLED FORM -->
+      <div class="col-lg-3 col-3 d-flex flex-column gap-3 order-2 order-lg-1 mb-4 mb-lg-0">
+        <div class="amvi-card flex-grow-1 mb-0 d-flex flex-column">
+          <div class="amvi-card-header d-flex justify-content-between align-items-start cursor-pointer-mobile" (click)="toggleForm()">
+            <div class="w-100">
+              <h2 class="amvi-card-title d-flex align-items-center gap-2">
+                <i class="bi bi-clipboard-check text-primary"></i> Form (Auto-Filled)
+                <i class="bi d-lg-none ms-auto text-muted" [ngClass]="isFormCollapsed ? 'bi-chevron-down' : 'bi-chevron-up'"></i>
+              </h2>
+              <p class="amvi-card-subtitle">Your responses are captured in real time.</p>
+            </div>
+          </div>
+
+          <!-- Collapsible Form wrapper for mobile responsiveness -->
+          <div class="form-collapse-content w-100 flex-grow-1 d-flex flex-column" [class.show]="!isFormCollapsed">
+            <div class="form-fields-container flex-grow-1">
+              <div class="form-field-row px-2" *ngFor="let field of formFields()" [class.active-field]="field.isActive" [class.field-invalid]="field.isValid === false">
+                <div class="field-icon"><i class="bi {{ field.icon }}"></i></div>
+                <span class="field-label">{{ field.label }}</span>
+                <span class="field-value" [class.text-success]="field.value && field.value !== 'Skipped'" [class.text-muted]="!field.value || field.value === 'Skipped'" [style.font-style]="field.value === 'Skipped' ? 'italic' : 'normal'">
+                  {{ field.value || 'Waiting for input...' }}
+                  <i *ngIf="field.hasDropdown" class="bi bi-chevron-down ms-1 text-muted" style="font-size:0.75rem"></i>
+                </span>
+                <i *ngIf="field.value && field.value !== 'Skipped' && field.isValid !== false" class="bi bi-check-circle-fill field-check"></i>
+                <i *ngIf="field.value === 'Skipped'" class="bi bi-dash-circle-fill text-muted field-check" style="color: #6c757d !important;"></i>
+                <i *ngIf="field.isValid === false" class="bi bi-exclamation-circle-fill text-danger"></i>
+              </div>
+            </div>
+            
+            <!-- AI Summary -->
+            <div class="ai-summary-card p-3 mt-4 mb-3" *ngIf="aiSummary()">
+              <h3 class="amvi-card-title d-flex align-items-center gap-2 mb-2" style="color: #4a6ee0;">
+                <i class="bi bi-magic"></i> AI Summary (Live)
+              </h3>
+              <p class="mb-0 text-dark" style="font-size: 0.85rem; line-height: 1.5;">
+                {{ aiSummary() }}
+              </p>
+            </div>
+
+            <!-- Secure Data Info -->
+            <div class="info-card p-3 rounded d-flex gap-2 align-items-start mt-auto">
+              <i class="bi bi-shield-check text-primary mt-1"></i>
+              <span>All data is captured securely and will be submitted only after your confirmation.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CENTER COLUMN: LIVE CONVERSATION -->
+      <div class="col-lg-6 col-6 d-flex flex-column order-1 order-lg-2 mb-4 mb-lg-0">
+        <div class="amvi-card flex-grow-1 d-flex flex-column mb-0">
+          <div class="amvi-card-header d-flex justify-content-between align-items-center border-bottom pb-3">
+            <div>
+              <h2 class="amvi-card-title d-flex align-items-center gap-2">
+                <i class="bi bi-chat-dots text-primary"></i> Live Conversation
+              </h2>
+              <p class="amvi-card-subtitle">Real-time transcription and system prompts.</p>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" (click)="clearTranscript()">
+              <i class="bi bi-trash3"></i> Clear Transcript
+            </button>
+          </div>
+
+          <div #transcriptScrollContainer class="transcript-area flex-grow-1 pt-4 pb-2 d-flex flex-column position-relative">
+            <div *ngIf="transcriptMessages().length === 0" class="text-center text-muted mt-5">
+              No conversation yet. Tap the microphone to start.
+            </div>
+
+            <!-- Messages -->
+            <div class="chat-container w-100" *ngFor="let msg of transcriptMessages(); let last = last" [class.mb-5]="last">
+              <div class="chat-bubble" [ngClass]="msg.type === 'system' ? 'chat-system' : (msg.type === 'interim' ? 'chat-interim' : 'chat-user')">
+                <i class="bi me-2" [ngClass]="msg.type === 'system' ? 'bi-robot text-primary' : 'bi-person text-success'"></i> 
+                {{ msg.text }}
+                <span class="chat-time">{{ msg.time }}</span>
+                <div *ngIf="msg.type === 'interim'" class="typing-indicator ms-2 d-inline-block">
+                    <span>.</span><span>.</span><span>.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Bottom Voice Control Area -->
+          <div class="voice-control-zone mt-auto text-center py-4">
+            <div class="d-flex flex-column align-items-center justify-content-center">
+              
+              <!-- Immersive Listening Status -->
+              <div class="listening-status mb-3" [class.active]="isListening && !conversationService.isSubmitted()" [class.text-success]="!isListening && isWorkflowComplete()" [class.submitted]="conversationService.isSubmitted()">
+                <span class="pulse-ring" *ngIf="isListening && !conversationService.isSubmitted()"></span>
+                <i class="bi bi-check-circle-fill me-2 fs-5" *ngIf="(!isListening && isWorkflowComplete()) || conversationService.isSubmitted()"></i>
+                <span class="status-text fw-medium fs-5">
+                  {{ conversationService.isSubmitted() ? 'Form Submitted' : (isListening ? 'listening' : (isWorkflowComplete() ? 'Awaiting Confirmation' : 'Paused')) }}
+                </span>
+              </div>
+              
+              <div class="d-flex justify-content-center align-items-center gap-5">
+                <div class="waveform large" [style.opacity]="(isListening && !conversationService.isSubmitted()) ? '1' : '0'">
+                  <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+                </div>
+                
+                <button class="mic-btn central-mic-btn" 
+                        [class.mic-active]="isListening && !conversationService.isSubmitted()" 
+                        [class.mic-inactive]="!isListening || conversationService.isSubmitted()" 
+                        (click)="toggleListening()"
+                        [disabled]="conversationService.isSubmitted()">
+                  <i class="bi" [ngClass]="(isListening && !conversationService.isSubmitted()) ? 'bi-mic-fill' : 'bi-mic-mute-fill'"></i>
+                </button>
+                
+                <div class="waveform large" [style.opacity]="(isListening && !conversationService.isSubmitted()) ? '1' : '0'">
+                  <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+                </div>
+              </div>
+              
+              <span class="badge bg-light text-secondary border p-2 px-3 rounded-pill fw-normal mt-4" style="font-size:0.85rem;">
+                Tip: Speak naturally. Say "Skip" to move past a question.
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: SYSTEM AND ACTIONS -->
+      <div class="col-lg-3 col-3 right-panel d-flex flex-column gap-3 order-3 order-lg-3">
+        
+        <!-- System Status -->
+        <div class="amvi-card">
+          <h2 class="amvi-card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-activity text-success"></i> System Status
+          </h2>
+          
+          <div class="status-grid">
+            <div class="status-row" *ngFor="let status of systemStatuses">
+              <span class="d-flex align-items-center gap-2"><i class="bi {{ status.icon }} text-muted"></i> {{ status.name }}</span>
+              <span class="small fw-medium" [ngClass]="status.isActive ? 'text-success' : 'text-danger'">
+                <span class="status-dot" style="width:6px;height:6px;animation:none;" [ngClass]="status.isActive ? 'bg-success' : 'bg-danger'"></span> {{ status.status }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Conversation Progress -->
+        <div class="amvi-card">
+          <h2 class="amvi-card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-pie-chart text-primary"></i> Conversation Progress
+          </h2>
+          <div class="d-flex align-items-center gap-4 py-2">
+            <div class="progress-ring-container">
+              <div class="progress-ring" [style.background]="'conic-gradient(var(--primary-blue) ' + progressPercentage() + '%, #e9ecef 0%)'">
+                <span class="progress-text">{{ progressPercentage() }}%</span>
+              </div>
+            </div>
+            <div>
+              <div class="fw-bold text-success mb-1" style="font-size: 1.1rem;" [class.text-dark]="completedFields() < totalFields()">
+                {{ completedFields() }} / {{ totalFields() }} <span class="fw-medium text-dark" style="font-size:0.85rem;">Steps Completed</span>
+              </div>
+              <p class="text-muted small mb-0 lh-sm">
+                {{ completedFields() === totalFields() ? 'All required information captured.' : 'Waiting for more information.' }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="amvi-card">
+          <h2 class="amvi-card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-lightning-charge text-warning"></i> Quick Actions
+          </h2>
+          
+          <div class="quick-actions-grid">
+            <button class="btn action-btn btn-repeat" (click)="repeatLastPrompt()" [disabled]="conversationService.isSubmitted()">
+              <i class="bi bi-arrow-counterclockwise"></i> Repeat Last Prompt
+            </button>
+            
+            <button class="btn action-btn btn-skip" (click)="skipAndProceed()" [disabled]="conversationService.isSubmitted()">
+              <i class="bi bi-skip-forward"></i> Skip and Proceed
+            </button>
+            
+            <button class="btn action-btn btn-clear" (click)="clearForm()">
+              <i class="bi bi-arrow-clockwise"></i> Clear Form
+            </button>
+          </div>
+        </div>
+
+        <!-- Submit Form -->
+        <div class="amvi-card mt-auto" style="border: 1px solid rgba(25, 135, 84, 0.2); background: linear-gradient(to bottom, #ffffff, #f9fdfa);" [class.submit-glow]="isWorkflowComplete() && !conversationService.isSubmitted()">
+          <div class="d-flex align-items-start gap-2 mb-3">
+            <i class="bi fs-5" [ngClass]="conversationService.isSubmitted() ? 'bi-check-circle-fill text-success' : 'bi-send text-success'"></i>
+            <div>
+              <h2 class="amvi-card-title" [class.text-success]="conversationService.isSubmitted()" [class.text-dark]="!conversationService.isSubmitted()">
+                {{ conversationService.isSubmitted() ? 'Submitted' : 'Submit Form' }}
+              </h2>
+              <p class="amvi-card-subtitle" [class.text-success]="conversationService.isSubmitted()">
+                {{ conversationService.isSubmitted() ? 'Form submitted successfully.' : (completedFields() === totalFields() ? 'Everything is ready to submit.' : 'Please complete the form.') }}
+              </p>
+            </div>
+          </div>
+          
+          <button class="btn submit-btn w-100 text-white d-flex align-items-center justify-content-center gap-2" (click)="submitForm()" [disabled]="completedFields() < totalFields() || conversationService.isSubmitted()" [style.opacity]="(completedFields() < totalFields() || conversationService.isSubmitted()) ? '0.6' : '1'" [class.btn-success]="conversationService.isSubmitted()">
+            {{ conversationService.isSubmitted() ? 'Submitted' : 'Submit the Form' }} <i class="bi ms-2" [ngClass]="conversationService.isSubmitted() ? 'bi-cloud-check' : 'bi-check-circle'" style="font-size:1.2rem;"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
